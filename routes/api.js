@@ -5,7 +5,7 @@ let mongodb = require('mongodb')
 let mongoose = require('mongoose')
 var expect = require('chai').expect;
 
-var pw = 'M0ngoDB'
+var pw = 'M0ngoDB123'
 
 module.exports = function (app) {
 
