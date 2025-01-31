@@ -35,7 +35,20 @@ module.exports = function (app) {
     
       /* Find/Update Stock Document */
       let findOrUpdateStock = (stockName, documentUpdate, nextStep) => {
-      
+        Stock.findOneAndUpdate(
+            {name: stockName},
+            documentUpdate,
+            {new: true, upsert: true},
+            (error, stockDocument) => {
+                if(error){
+                console.log(error)
+                }else if(!error && stockDocument){
+                    if(twoStocks === false){
+                      return nextStep(stockDocument, processOneStock)
+                    }
+                }
+            }
+        )
       }
     
       /* Like Stock */
@@ -45,13 +58,14 @@ module.exports = function (app) {
     
       /* Get Price */
       let getPrice = (stockDocument, nextStep) => {
-      
-     }
+        nextStep(stockDocument, outputResponse)
+      }
     
       /* Build Response for 1 Stock */
       let processOneStock = (stockDocument, nextStep) => {
-      
-     }
+        responseObject['stockData']['stock'] = stockDocument['name']
+        nextStep()          
+      }
     
      let stocks = []        
       /* Build Response for 2 Stocks */
@@ -59,9 +73,15 @@ module.exports = function (app) {
       
      }
 
-		  /* Process Input*/  
-      if(typeof (req.query.stock) === 'string'){
-       /* One Stock */
+		 /* Process Input */
+    if(typeof (req.query.stock) === 'string'){
+      /* One Stock */
+      let stockName = req.query.stock
+    
+      let documentUpdate = {}
+      findOrUpdateStock(stockName, documentUpdate, getPrice)
+    
+  
 
 
      } else if (Array.isArray(req.query.stock)){
