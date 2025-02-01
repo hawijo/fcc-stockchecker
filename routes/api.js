@@ -3,11 +3,9 @@
 const mongoose = require('mongoose');
 const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args)); // Fix for Node < 18
 
-
-
 module.exports = function (app) {
   let uri = `mongodb+srv://joshuahawi24:${process.env.PW}@w3-tutorial.q90bo.mongodb.net/?retryWrites=true&w=majority&appName=W3-Tutorial`;
-  
+
   // Removed deprecated options
   mongoose.connect(uri);
 
@@ -27,90 +25,72 @@ module.exports = function (app) {
     let outputResponse = () => res.json(responseObject);
 
     /* Find/Update Stock Document */
-    let findOrUpdateStock = async (stockName, documentUpdate) => {
+    let findOrUpdateStock = async (stockName, documentUpdate, nextStep) => {
       try {
         let stockDocument = await Stock.findOneAndUpdate(
           { name: stockName },
           documentUpdate,
           { new: true, upsert: true }
         );
-        return stockDocument;
+        return nextStep(stockDocument);
       } catch (error) {
         console.error(error);
-        return null;
+        return res.json({ error: 'Database error' });
       }
     };
 
     /* Get Price */
-    let getPrice = async (stockName) => {
+    let getPrice = async (stockDocument) => {
       try {
-        let requestUrl = `https://stock-price-checker-proxy.freecodecamp.rocks/v1/stock/${stockName}/quote`;
+        let requestUrl = `https://stock-price-checker-proxy.freecodecamp.rocks/v1/stock/${stockDocument.name}/quote`;
         let response = await fetch(requestUrl);
         let apiResponse = await response.json();
-        return apiResponse.latestPrice ? apiResponse.latestPrice.toFixed(2) : null;
+
+        if (!apiResponse.latestPrice) return res.json({ error: 'Stock price not found' });
+
+        responseObject.stockData = {
+          stock: stockDocument.name,
+          price: apiResponse.latestPrice.toFixed(2),
+          likes: stockDocument.likes,
+        };
+
+        outputResponse();
       } catch (error) {
         console.error('Error fetching stock price:', error);
-        return null;
+        return res.json({ error: 'Stock price fetch failed' });
+      }
+    };
+
+    /* Like Stock */
+    let likeStock = async (stockName, nextStep) => {
+      try {
+        let stockDocument = await Stock.findOne({ name: stockName });
+
+        if (!stockDocument) {
+          return res.json({ error: 'Stock not found' });
+        }
+
+        if (stockDocument.ips.includes(req.ip)) {
+          return res.json({ error: 'Only 1 like per IP allowed' });
+        }
+
+        let documentUpdate = { $inc: { likes: 1 }, $push: { ips: req.ip } };
+        findOrUpdateStock(stockName, documentUpdate, nextStep);
+      } catch (error) {
+        console.error('Error updating likes:', error);
+        return res.json({ error: 'Like update failed' });
       }
     };
 
     /* Process Single Stock */
-    let processOneStock = async (stockName) => {
-      let documentUpdate = {};
-      let stockDocument = await findOrUpdateStock(stockName, documentUpdate);
-      if (!stockDocument) return res.json({ error: 'Stock not found' });
-
-      let stockPrice = await getPrice(stockName);
-      if (!stockPrice) return res.json({ error: 'Stock price not found' });
-
-      responseObject.stockData = {
-        stock: stockDocument.name,
-        price: stockPrice,
-        likes: stockDocument.likes,
-      };
-
-      outputResponse();
-    };
-
-    /* Process Two Stocks */
-    let processTwoStocks = async (stockNames) => {
-      let stocksData = [];
-
-      for (let stockName of stockNames) {
-        let documentUpdate = {};
-        let stockDocument = await findOrUpdateStock(stockName, documentUpdate);
-        if (!stockDocument) return res.json({ error: `Stock ${stockName} not found` });
-
-        let stockPrice = await getPrice(stockName);
-        if (!stockPrice) return res.json({ error: `Stock price for ${stockName} not found` });
-
-        stocksData.push({
-          stock: stockDocument.name,
-          price: stockPrice,
-          rel_likes: stockDocument.likes, // We'll calculate relative likes later
-        });
-      }
-
-      if (stocksData.length === 2) {
-        let like1 = stocksData[0].rel_likes;
-        let like2 = stocksData[1].rel_likes;
-        stocksData[0].rel_likes = like1 - like2;
-        stocksData[1].rel_likes = like2 - like1;
-      }
-
-      responseObject.stockData = stocksData;
-      outputResponse();
-    };
-
-    /* Process Input */
     if (typeof req.query.stock === 'string') {
-      /* One Stock */
-      await processOneStock(req.query.stock);
-    } else if (Array.isArray(req.query.stock) && req.query.stock.length === 2) {
-      twoStocks = true;
-      await processTwoStocks(req.query.stock);
-    } else {
-      res.json({ error: 'Invalid stock query' });
+      let stockName = req.query.stock;
+
+      if (req.query.like === 'true') {
+        likeStock(stockName, getPrice);
+      } else {
+        findOrUpdateStock(stockName, {}, getPrice);
+      }
     }
   });
 };
