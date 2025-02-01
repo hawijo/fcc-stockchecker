@@ -6,7 +6,7 @@ const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fet
 var pw = 'Pass';
 
 module.exports = function (app) {
-  let uri = `mongodb+srv://joshuahawi24:${process.env.PW}@w3-tutorial.q90bo.mongodb.net/?retryWrites=true&w=majority&appName=W3-Tutorial`;
+  let uri = `mongodb+srv://joshuahawi24:${pw}@w3-tutorial.q90bo.mongodb.net/?retryWrites=true&w=majority&appName=W3-Tutorial`;
   
   // Removed deprecated options
   mongoose.connect(uri);
