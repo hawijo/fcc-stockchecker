@@ -15,7 +15,7 @@
 		"helmet": "^8.0.0",
 		"mocha": "^11.1.0",
 		"mongodb": "^6.13.0",
-		"mongoose": "^8.9.5",
+		"mongoose": "^8.9.6",
 		"node": "^23.7.0"
 	},
 	"repository": {

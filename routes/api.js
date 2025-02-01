@@ -34,22 +34,24 @@ module.exports = function (app) {
      }
     
       /* Find/Update Stock Document */
-      let findOrUpdateStock = (stockName, documentUpdate, nextStep) => {
-        Stock.findOneAndUpdate(
-            {name: stockName},
-            documentUpdate,
-            {new: true, upsert: true},
-            (error, stockDocument) => {
-                if(error){
-                console.log(error)
-                }else if(!error && stockDocument){
-                    if(twoStocks === false){
-                      return nextStep(stockDocument, processOneStock)
-                    }
-                }
-            }
-        )
+     let findOrUpdateStock = async (stockName, documentUpdate, nextStep) => {
+      try {
+          let stockDocument = await Stock.findOneAndUpdate(
+              { name: stockName },
+              documentUpdate,
+              { new: true, upsert: true }
+          );
+  
+          if (stockDocument) {
+              if (twoStocks === false) {
+                  return nextStep(stockDocument, processOneStock);
+              }
+          }
+      } catch (error) {
+          console.error(error);
       }
+  };
+  
     
       /* Like Stock */
       let likeStock = (stockName, nextStep) => {
