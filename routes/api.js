@@ -42,7 +42,8 @@ module.exports = function (app) {
         let requestUrl = `https://stock-price-checker-proxy.freecodecamp.rocks/v1/stock/${stockName}/quote`;
         let response = await fetch(requestUrl);
         let apiResponse = await response.json();
-        return apiResponse.latestPrice ? apiResponse.latestPrice.toFixed(2) : null;
+        
+        return apiResponse.latestPrice ? Number(apiResponse.latestPrice.toFixed(2)) : null; // Ensure it's a number
       } catch (error) {
         console.error('Error fetching stock price:', error);
         return null;
@@ -79,12 +80,12 @@ module.exports = function (app) {
       if (!stockDocument) return res.json({ error: 'Stock not found' });
 
       let stockPrice = await getPrice(stockName);
-      if (!stockPrice) return res.json({ error: 'Stock price not found' });
+      if (stockPrice === null) return res.json({ error: 'Stock price not found' });
 
       responseObject.stockData = {
         stock: stockDocument.name,
-        price: stockPrice,
-        likes: stockDocument.likes,
+        price: stockPrice, // Ensured as a number
+        likes: stockDocument.likes, // Ensured as a number
       };
 
       outputResponse();
@@ -105,12 +106,12 @@ module.exports = function (app) {
         if (!stockDocument) return res.json({ error: `Stock ${stockName} not found` });
 
         let stockPrice = await getPrice(stockName);
-        if (!stockPrice) return res.json({ error: `Stock price for ${stockName} not found` });
+        if (stockPrice === null) return res.json({ error: `Stock price for ${stockName} not found` });
 
         stocksData.push({
           stock: stockDocument.name,
-          price: stockPrice,
-          likes: stockDocument.likes,
+          price: stockPrice, // Ensured as a number
+          likes: stockDocument.likes, // Ensured as a number
         });
       }
 
