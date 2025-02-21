@@ -42,31 +42,42 @@ module.exports = function (app) {
         let requestUrl = `https://stock-price-checker-proxy.freecodecamp.rocks/v1/stock/${stockName}/quote`;
         let response = await fetch(requestUrl);
         let apiResponse = await response.json();
-        
-        return apiResponse.latestPrice ? Number(apiResponse.latestPrice.toFixed(2)) : null; // Ensure it's a number
+    
+        if (!apiResponse || !apiResponse.latestPrice) {
+          console.error(`Stock ${stockName} not found in API`);
+          return null;
+        }
+    
+        return Number(apiResponse.latestPrice.toFixed(2));
       } catch (error) {
         console.error('Error fetching stock price:', error);
         return null;
       }
     };
+    
 
     /* Like Stock */
-    let likeStock = async (stockName) => {
+    let likeStock = async (stockName, ip) => {
       try {
         let stockDocument = await Stock.findOne({ name: stockName });
-
-        if (!stockDocument) return res.json({ error: 'Stock not found' });
-
-        if (stockDocument.ips.includes(req.ip)) {
-          return res.json({ error: 'Only 1 like per IP allowed' });
+    
+        if (!stockDocument) {
+          console.error(`Stock ${stockName} not found in DB`);
+          return { error: 'Stock not found' }; // Return an error object
         }
-
-        return await findOrUpdateStock(stockName, { $inc: { likes: 1 }, $push: { ips: req.ip } });
+    
+        if (stockDocument.ips.includes(ip)) {
+          return { error: 'Only 1 like per IP allowed' }; // Fix: Return correct error message
+        }
+    
+        return await findOrUpdateStock(stockName, { $inc: { likes: 1 }, $push: { ips: ip } });
       } catch (error) {
         console.error('Error updating likes:', error);
-        return res.json({ error: 'Like update failed' });
+        return { error: 'Like update failed' };
       }
     };
+    
+    
 
     /* Process One Stock */
     let processOneStock = async (stockName, like) => {
@@ -94,7 +105,7 @@ module.exports = function (app) {
     /* Process Two Stocks */
     let processTwoStocks = async (stockNames, like) => {
       let stocksData = [];
-
+    
       for (let stockName of stockNames) {
         let stockDocument;
         if (like === 'true') {
@@ -102,29 +113,38 @@ module.exports = function (app) {
         } else {
           stockDocument = await findOrUpdateStock(stockName, {});
         }
-
-        if (!stockDocument) return res.json({ error: `Stock ${stockName} not found` });
-
+    
+        if (!stockDocument || stockDocument.error) {
+          console.error(`Skipping ${stockName} due to error`);
+          continue; // Skip this stock instead of returning an error
+        }
+    
         let stockPrice = await getPrice(stockName);
-        if (stockPrice === null) return res.json({ error: `Stock price for ${stockName} not found` });
-
+        if (stockPrice === null) {
+          console.error(`Skipping ${stockName} due to missing price`);
+          continue;
+        }
+    
         stocksData.push({
           stock: stockDocument.name,
-          price: stockPrice, // Ensured as a number
-          likes: stockDocument.likes, // Ensured as a number
+          price: stockPrice,
+          likes: stockDocument.likes,
         });
       }
-
-      if (stocksData.length === 2) {
-        let like1 = stocksData[0].likes;
-        let like2 = stocksData[1].likes;
-        stocksData[0].rel_likes = like1 - like2;
-        stocksData[1].rel_likes = like2 - like1;
+    
+      if (stocksData.length !== 2) {
+        return res.json({ error: 'One or more stocks not found' });
       }
-
+    
+      let like1 = stocksData[0].likes;
+      let like2 = stocksData[1].likes;
+      stocksData[0].rel_likes = like1 - like2;
+      stocksData[1].rel_likes = like2 - like1;
+    
       responseObject.stockData = stocksData;
       outputResponse();
     };
+    
 
     /* Process Input */
     if (typeof req.query.stock === 'string') {
