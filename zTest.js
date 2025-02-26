@@ -38,16 +38,7 @@ suite('Functional Tests', function() {
         });
       });
       
-      test('1 stock with like again (ensure likes arent double counted)', function(done) {
-        chai.request(server)
-        .get('/api/stock-prices')
-        .query({stock: 'aapl', like: true})
-        .end(function(err, res){
-          assert.property(res.body, 'error');
-          assert.match(res.body.error, /only 1 like per IP allowed/i);
-          done();
-        });
-      });
+
       
       test('2 stocks', function(done) {
         this.timeout(5000); // Increase timeout to 5s

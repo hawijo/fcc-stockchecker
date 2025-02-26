@@ -55,7 +55,6 @@ module.exports = function (app) {
       }
     };
     
-
     /* Like Stock */
     let likeStock = async (stockName, ip) => {
       try {
@@ -63,11 +62,11 @@ module.exports = function (app) {
     
         if (!stockDocument) {
           console.error(`Stock ${stockName} not found in DB`);
-          return { error: 'Stock not found' }; // Return an error object
+          return { error: 'Stock not found' };
         }
     
         if (stockDocument.ips.includes(ip)) {
-          return { error: 'Only 1 like per IP allowed' }; // Fix: Return correct error message
+          return { error: 'Only 1 like per IP allowed' };
         }
     
         return await findOrUpdateStock(stockName, { $inc: { likes: 1 }, $push: { ips: ip } });
@@ -77,26 +76,24 @@ module.exports = function (app) {
       }
     };
     
-    
-
     /* Process One Stock */
-    let processOneStock = async (stockName, like) => {
+    let processOneStock = async (stockName, like, ip) => {
       let stockDocument;
       if (like === 'true') {
-        stockDocument = await likeStock(stockName);
+        stockDocument = await likeStock(stockName, ip);
       } else {
         stockDocument = await findOrUpdateStock(stockName, {});
       }
       
-      if (!stockDocument) return res.json({ error: 'Stock not found' });
+      if (!stockDocument || stockDocument.error) {
+        return res.json({ error: stockDocument?.error || 'Stock not found' });
+      }
 
       let stockPrice = await getPrice(stockName);
-      if (stockPrice === null) return res.json({ error: 'Stock price not found' });
-
       responseObject.stockData = {
         stock: stockDocument.name,
-        price: stockPrice, // Ensured as a number
-        likes: stockDocument.likes, // Ensured as a number
+        price: stockPrice ?? 'Price unavailable',
+        likes: stockDocument.likes,
       };
 
       outputResponse();
@@ -109,14 +106,14 @@ module.exports = function (app) {
       for (let stockName of stockNames) {
         let stockDocument;
         if (like === 'true') {
-          stockDocument = await likeStock(stockName);
+          stockDocument = await likeStock(stockName, req.ip);
         } else {
           stockDocument = await findOrUpdateStock(stockName, {});
         }
     
         if (!stockDocument || stockDocument.error) {
           console.error(`Skipping ${stockName} due to error`);
-          continue; // Skip this stock instead of returning an error
+          continue;
         }
     
         let stockPrice = await getPrice(stockName);
@@ -145,10 +142,9 @@ module.exports = function (app) {
       outputResponse();
     };
     
-
     /* Process Input */
     if (typeof req.query.stock === 'string') {
-      processOneStock(req.query.stock, req.query.like);
+      processOneStock(req.query.stock, req.query.like, req.ip);
     } else if (Array.isArray(req.query.stock)) {
       processTwoStocks(req.query.stock, req.query.like);
     }
